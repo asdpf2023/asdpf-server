@@ -4,7 +4,8 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const express = require("express");
 const { port, database } = require("./config");
-
+const axios = require("axios");
+const FormData = require("form-data");
 const app = express();
 
 // Connect to MongoDB
@@ -36,14 +37,33 @@ app.use(express.json());
 
 // Payment endpoint
 app.post("/api/payment", async (req, res) => {
-  try {
-    const payment = new Payment(req.body); // req.body should include programId
-    await payment.save();
-    res.status(201).send({ message: "Payment data saved successfully" });
-  } catch (error) {
-    res.status(500).send({ message: "Error saving payment data", error });
-  }
+  let data = new FormData();
+  data.append("userName", "asdfund_api");
+  data.append("password", "asdfund1234");
+  data.append("amount", "1");
+  data.append("orderNumber", "G" + +new Date());
+  data.append("returnUrl", "http://localhost:8000/api/success");
+
+  let config = {
+    method: "post",
+    maxBodyLength: Infinity,
+    url: "https://ipaytest.arca.am:8445/payment/rest/register.do",
+    headers: {
+      ...data.getHeaders(),
+    },
+    data: data,
+  };
+  const response = await axios.request(config);
+  res.send(response.data);
+  console.log(response);
 });
+
+app.get("/api/success", async (req, res) => {
+  console.log("work");
+  console.log(req);
+  res.send("ok");
+});
+
 app.get("/api/donations/:programId", async (req, res) => {
   try {
     const total = await Payment.aggregate([

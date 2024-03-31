@@ -22,13 +22,11 @@ const donationSchema = new mongoose.Schema({
   cvv: {
     type: String,
     required: true,
-    // Store this securely or not at all, depending on your security requirements
   },
   amount: {
     type: Number,
     required: true,
   },
-  // Add additional fields as needed
 });
 
 // Create the model from the schema
