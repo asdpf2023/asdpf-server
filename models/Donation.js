@@ -2,29 +2,13 @@ const mongoose = require("mongoose");
 
 // Define the schema for the donation
 const donationSchema = new mongoose.Schema({
-  cardNumber: {
+  user: {
     type: String,
     required: true,
     // Mask or encrypt this data as needed for security
   },
-  cardHolderName: {
+  email: {
     type: String,
-    required: true,
-  },
-  expiryMonth: {
-    type: String,
-    required: true,
-  },
-  expiryYear: {
-    type: String,
-    required: true,
-  },
-  cvv: {
-    type: String,
-    required: true,
-  },
-  amount: {
-    type: Number,
     required: true,
   },
 });
