@@ -18,7 +18,7 @@ MongoClient.connect(databaseUrl)
   .then((client) => {
     console.log("MongoDB Connected");
     db = client.db(dbName);
-    paymentsCollection = db.collection("payment");
+    paymentsCollection = db.collection("september");
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);
