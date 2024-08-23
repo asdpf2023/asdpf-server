@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const axios = require("axios");
 const FormData = require("form-data");
 const { port, databaseUrl, username, password, dbName } = require("./config");
@@ -18,7 +18,7 @@ MongoClient.connect(databaseUrl)
   .then((client) => {
     console.log("MongoDB Connected");
     db = client.db(dbName);
-    paymentsCollection = db.collection("payments");
+    paymentsCollection = db.collection("payment");
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err);
@@ -35,26 +35,32 @@ app.post("/api/payment", async (req, res) => {
       return res.status(400).send({ message: "inputAmount must be a number" });
     }
 
-    // Store payment data in the database
-    const payment = { ...req.body, inputAmount }; // Include other payment data as needed
-    await paymentsCollection.insertOne(payment);
+    // Store initial payment data in the database
+    const payment = {
+      ...req.body,
+      inputAmount,
+      status: "pending",
+      createdAt: new Date(),
+    };
+    const insertedPayment = await paymentsCollection.insertOne(payment);
 
     // Prepare form data for external API
     let data = new FormData();
     data.append("userName", username);
     data.append("password", password);
     data.append("amount", inputAmount * 100);
-    // Add program description if available
     if (req.body.programName) {
       data.append("description", req.body.programName);
     }
-    data.append("orderNumber", "G" + +new Date());
+    const orderNumber = "G" + +new Date();
+    data.append("orderNumber", orderNumber);
     data.append("returnUrl", "https://asdfund.com/successpage/");
+    jsonParams = { FORCE_3DS2: "true" };
 
     let config = {
       method: "post",
       maxBodyLength: Infinity,
-      url: "https://ipaytest.arca.am:8445/payment/rest/register.do",
+      url: "https://ipay.arca.am/payment/rest/register.do",
       headers: {
         ...data.getHeaders(),
       },
@@ -63,19 +69,68 @@ app.post("/api/payment", async (req, res) => {
 
     // Make the axios request to external API
     const response = await axios.request(config);
+
+    // Update payment record with external API response
+    await paymentsCollection.updateOne(
+      { _id: insertedPayment.insertedId },
+      {
+        $set: {
+          apiResponse: response.data,
+          orderNumber,
+          status: response.data.errorCode ? "failed" : "pending",
+        },
+      }
+    );
+
     res.status(201).send(response.data);
-    console.log(response);
   } catch (error) {
     res.status(500).send({ message: "Error saving payment data", error });
   }
 });
 
-app.get("/api/success", async (req, res) => {
-  console.log("work");
-  console.log(req);
-  res.send("ok");
+// Endpoint to check the status of an order
+app.get("/api/payment/status/:orderNumber", async (req, res) => {
+  try {
+    const { orderNumber } = req.params;
+
+    // Prepare form data for checking order status
+    let data = new FormData();
+    data.append("userName", username);
+    data.append("password", password);
+    data.append("orderNumber", orderNumber);
+
+    let config = {
+      method: "post",
+      maxBodyLength: Infinity,
+      url: "https://ipay.arca.am/payment/rest/getOrderStatusExtended.do",
+      headers: {
+        ...data.getHeaders(),
+      },
+      data: data,
+    };
+
+    // Make the axios request to external API
+    const statusResponse = await axios.request(config);
+
+    // Update payment record with order status
+    await paymentsCollection.updateOne(
+      { orderNumber: orderNumber },
+      {
+        $set: {
+          statusResponse: statusResponse.data,
+          status:
+            statusResponse.data.orderStatus === 2 ? "completed" : "failed",
+        },
+      }
+    );
+
+    res.status(200).send(statusResponse.data);
+  } catch (error) {
+    res.status(500).send({ message: "Error fetching order status", error });
+  }
 });
 
+// Get donation summary
 app.get("/api/donations/:programId", async (req, res) => {
   try {
     const total = await paymentsCollection
