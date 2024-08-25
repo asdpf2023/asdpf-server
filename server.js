@@ -70,12 +70,6 @@ app.post("/api/payment", async (req, res) => {
   }
 });
 
-app.get("/api/success", async (req, res) => {
-  console.log("work");
-  console.log(req);
-  res.send("ok");
-});
-
 app.get("/api/donations/:programId", async (req, res) => {
   try {
     const total = await paymentsCollection
