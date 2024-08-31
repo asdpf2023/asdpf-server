@@ -4,7 +4,6 @@ const { MongoClient } = require("mongodb");
 const axios = require("axios");
 const FormData = require("form-data");
 const { port, databaseUrl, username, password, dbName } = require("./config");
-console.log(port, databaseUrl, username, password, dbName);
 
 const app = express();
 
